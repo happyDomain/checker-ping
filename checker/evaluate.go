@@ -67,7 +67,18 @@ const (
 )
 
 // Evaluate checks the ping data against the given thresholds.
+// StatusUnknown indicates the check could not be performed.
+const StatusUnknown = 0
+
 func Evaluate(data *PingData, warningRTT, criticalRTT, warningPacketLoss, criticalPacketLoss float64) EvaluateResult {
+	if len(data.Targets) == 0 {
+		return EvaluateResult{
+			Status:  StatusUnknown,
+			Message: "No targets to ping",
+			Code:    "ping_no_targets",
+		}
+	}
+
 	overallStatus := StatusOK
 	var summaryParts []string
 
