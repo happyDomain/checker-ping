@@ -53,9 +53,9 @@ func (p *pingProvider) Definition() *happydns.CheckerDefinition {
 }
 
 // ExtractMetrics implements happydns.CheckerMetricsReporter.
-func (p *pingProvider) ExtractMetrics(raw json.RawMessage, collectedAt time.Time) ([]happydns.CheckMetric, error) {
+func (p *pingProvider) ExtractMetrics(ctx happydns.ReportContext, collectedAt time.Time) ([]happydns.CheckMetric, error) {
 	var data PingData
-	if err := json.Unmarshal(raw, &data); err != nil {
+	if err := json.Unmarshal(ctx.Data(), &data); err != nil {
 		return nil, err
 	}
 
