@@ -23,7 +23,6 @@ package checker
 
 import (
 	"fmt"
-	"strings"
 	"time"
 )
 
@@ -53,48 +52,43 @@ type Metric struct {
 	Timestamp time.Time         `json:"timestamp"`
 }
 
-// EvaluateResult holds the evaluation outcome.
+// EvaluateResult holds the evaluation outcome for a single target.
 type EvaluateResult struct {
+	Address string `json:"address"`
 	Status  int    `json:"status"`
 	Message string `json:"message"`
 	Code    string `json:"code"`
 }
 
 const (
-	StatusOK   = 1
-	StatusWarn = 3
-	StatusCrit = 4
+	StatusUnknown = 0
+	StatusOK      = 1
+	StatusWarn    = 3
+	StatusCrit    = 4
 )
 
-// Evaluate checks the ping data against the given thresholds.
-// StatusUnknown indicates the check could not be performed.
-const StatusUnknown = 0
-
-func Evaluate(data *PingData, warningRTT, criticalRTT, warningPacketLoss, criticalPacketLoss float64) EvaluateResult {
+// Evaluate checks the ping data against the given thresholds and returns one
+// result per target.
+func Evaluate(data *PingData, warningRTT, criticalRTT, warningPacketLoss, criticalPacketLoss float64) []EvaluateResult {
 	if len(data.Targets) == 0 {
-		return EvaluateResult{
-			Status:  StatusUnknown,
-			Message: "No targets to ping",
-			Code:    "ping_no_targets",
-		}
+		return nil
 	}
 
-	overallStatus := StatusOK
-	var summaryParts []string
-
+	results := make([]EvaluateResult, 0, len(data.Targets))
 	for _, target := range data.Targets {
+		status := StatusOK
 		if target.PacketLoss >= criticalPacketLoss || target.RTTAvg >= criticalRTT {
-			overallStatus = StatusCrit
-		} else if (target.PacketLoss >= warningPacketLoss || target.RTTAvg >= warningRTT) && overallStatus < StatusWarn {
-			overallStatus = StatusWarn
+			status = StatusCrit
+		} else if target.PacketLoss >= warningPacketLoss || target.RTTAvg >= warningRTT {
+			status = StatusWarn
 		}
 
-		summaryParts = append(summaryParts, fmt.Sprintf("%s: %.1fms avg, %.0f%% loss", target.Address, target.RTTAvg, target.PacketLoss))
+		results = append(results, EvaluateResult{
+			Address: target.Address,
+			Status:  status,
+			Message: fmt.Sprintf("%.1fms avg, %.0f%% loss", target.RTTAvg, target.PacketLoss),
+			Code:    "ping_result",
+		})
 	}
-
-	return EvaluateResult{
-		Status:  overallStatus,
-		Message: strings.Join(summaryParts, " | "),
-		Code:    "ping_result",
-	}
+	return results
 }

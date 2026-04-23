@@ -106,14 +106,14 @@ func (r *pingRule) ValidateOptions(opts sdk.CheckerOptions) error {
 	return nil
 }
 
-func (r *pingRule) Evaluate(ctx context.Context, obs sdk.ObservationGetter, opts sdk.CheckerOptions) sdk.CheckState {
+func (r *pingRule) Evaluate(ctx context.Context, obs sdk.ObservationGetter, opts sdk.CheckerOptions) []sdk.CheckState {
 	var data PingData
 	if err := obs.Get(ctx, ObservationKeyPing, &data); err != nil {
-		return sdk.CheckState{
+		return []sdk.CheckState{{
 			Status:  sdk.StatusError,
 			Message: fmt.Sprintf("Failed to get ping data: %v", err),
 			Code:    "ping_error",
-		}
+		}}
 	}
 
 	warningRTT := sdk.GetFloatOption(opts, "warningRTT", 100)
@@ -121,26 +121,44 @@ func (r *pingRule) Evaluate(ctx context.Context, obs sdk.ObservationGetter, opts
 	warningPacketLoss := sdk.GetFloatOption(opts, "warningPacketLoss", 10)
 	criticalPacketLoss := sdk.GetFloatOption(opts, "criticalPacketLoss", 50)
 
-	result := Evaluate(&data, warningRTT, criticalRTT, warningPacketLoss, criticalPacketLoss)
-
-	var status sdk.Status
-	switch result.Status {
-	case StatusOK:
-		status = sdk.StatusOK
-	case StatusWarn:
-		status = sdk.StatusWarn
-	case StatusCrit:
-		status = sdk.StatusCrit
-	default:
-		status = sdk.StatusUnknown
+	results := Evaluate(&data, warningRTT, criticalRTT, warningPacketLoss, criticalPacketLoss)
+	if len(results) == 0 {
+		return []sdk.CheckState{{
+			Status:  sdk.StatusInfo,
+			Message: "No targets to ping",
+			Code:    "ping_no_targets",
+		}}
 	}
 
-	return sdk.CheckState{
-		Status:  status,
-		Message: result.Message,
-		Code:    result.Code,
-		Meta: map[string]any{
-			"targets": data.Targets,
-		},
+	targetByAddr := make(map[string]PingTargetResult, len(data.Targets))
+	for _, t := range data.Targets {
+		targetByAddr[t.Address] = t
 	}
+
+	out := make([]sdk.CheckState, 0, len(results))
+	for _, r := range results {
+		var status sdk.Status
+		switch r.Status {
+		case StatusOK:
+			status = sdk.StatusOK
+		case StatusWarn:
+			status = sdk.StatusWarn
+		case StatusCrit:
+			status = sdk.StatusCrit
+		default:
+			status = sdk.StatusUnknown
+		}
+
+		state := sdk.CheckState{
+			Status:  status,
+			Subject: r.Address,
+			Message: r.Message,
+			Code:    r.Code,
+		}
+		if t, ok := targetByAddr[r.Address]; ok {
+			state.Meta = map[string]any{"target": t}
+		}
+		out = append(out, state)
+	}
+	return out
 }
