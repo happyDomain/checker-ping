@@ -26,7 +26,7 @@ import (
 	"log"
 
 	ping "git.happydns.org/checker-ping/checker"
-	sdk "git.happydns.org/checker-sdk-go/checker"
+	"git.happydns.org/checker-sdk-go/checker/server"
 )
 
 var (
@@ -47,8 +47,8 @@ func main() {
 	// CheckerDefinition.Version.
 	ping.Version = Version
 
-	server := sdk.NewServer(ping.ProviderWithPrivileged(*privileged))
-	if err := server.ListenAndServe(*listenAddr); err != nil {
+	srv := server.New(ping.ProviderWithPrivileged(*privileged))
+	if err := srv.ListenAndServe(*listenAddr); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 }

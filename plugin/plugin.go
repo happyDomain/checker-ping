@@ -22,5 +22,6 @@ func NewCheckerPlugin() (*sdk.CheckerDefinition, sdk.ObservationProvider, error)
 	// Propagate the plugin's version to the checker package so it shows up
 	// in CheckerDefinition.Version.
 	ping.Version = Version
-	return ping.Definition(), ping.Provider(), nil
+	prvd := ping.Provider()
+	return prvd.(sdk.CheckerDefinitionProvider).Definition(), prvd, nil
 }

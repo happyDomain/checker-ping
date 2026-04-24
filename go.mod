@@ -3,7 +3,7 @@ module git.happydns.org/checker-ping
 go 1.25.0
 
 require (
-	git.happydns.org/checker-sdk-go v1.2.0
+	git.happydns.org/checker-sdk-go v1.3.0
 	git.happydns.org/happyDomain v0.7.0
 	github.com/prometheus-community/pro-bing v0.8.0
 )

@@ -38,7 +38,7 @@ import (
 var Version = "built-in"
 
 // Definition returns the CheckerDefinition for the ping checker.
-func Definition() *happydns.CheckerDefinition {
+func (p *pingProvider) Definition() *happydns.CheckerDefinition {
 	return &happydns.CheckerDefinition{
 		ID:      "ping",
 		Name:    "Ping (ICMP)",
@@ -89,9 +89,7 @@ func Definition() *happydns.CheckerDefinition {
 				},
 			},
 		},
-		Rules: []happydns.CheckRule{
-			Rule(),
-		},
+		Rules: Rules(),
 		Interval: &happydns.CheckIntervalSpec{
 			Min:     1 * time.Minute,
 			Max:     1 * time.Hour,

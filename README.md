@@ -19,8 +19,8 @@ make
 
 The server exposes:
 
-- `GET /health` — health check
-- `POST /collect` — collect ping observations (happyDomain external checker protocol)
+- `GET /health`, health check
+- `POST /collect`, collect ping observations (happyDomain external checker protocol)
 
 ### Docker
 

@@ -47,11 +47,6 @@ func (p *pingProvider) Key() happydns.ObservationKey {
 	return ObservationKeyPing
 }
 
-// Definition implements happydns.CheckerDefinitionProvider.
-func (p *pingProvider) Definition() *happydns.CheckerDefinition {
-	return Definition()
-}
-
 // ExtractMetrics implements happydns.CheckerMetricsReporter.
 func (p *pingProvider) ExtractMetrics(ctx happydns.ReportContext, collectedAt time.Time) ([]happydns.CheckMetric, error) {
 	var data PingData

@@ -19,6 +19,8 @@
 // You should have received a copy of the GNU Affero General Public License
 // along with this program.  If not, see <https://www.gnu.org/licenses/>.
 
+//go:build standalone
+
 package checker
 
 import (
@@ -30,7 +32,7 @@ import (
 	sdk "git.happydns.org/checker-sdk-go/checker"
 )
 
-// RenderForm implements sdk.CheckerInteractive. It exposes a minimal form
+// RenderForm implements server.Interactive. It exposes a minimal form
 // letting a human submit one or more ping targets (hostnames or IPs) along
 // with the usual threshold knobs.
 func (p *pingProvider) RenderForm() []sdk.CheckerOptionField {
@@ -76,8 +78,8 @@ func (p *pingProvider) RenderForm() []sdk.CheckerOptionField {
 	}
 }
 
-// ParseForm implements sdk.CheckerInteractive. It converts the HTML form
-// inputs into a CheckerOptions that Collect can consume directly — pinging
+// ParseForm implements server.Interactive. It converts the HTML form
+// inputs into a CheckerOptions that Collect can consume directly, pinging
 // resolves hostnames on its own, so no extra lookups are needed here.
 func (p *pingProvider) ParseForm(r *http.Request) (sdk.CheckerOptions, error) {
 	raw := strings.TrimSpace(r.FormValue("addresses"))
