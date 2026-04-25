@@ -124,7 +124,7 @@ func (r *pingRule) Evaluate(ctx context.Context, obs sdk.ObservationGetter, opts
 	results := Evaluate(&data, warningRTT, criticalRTT, warningPacketLoss, criticalPacketLoss)
 	if len(results) == 0 {
 		return []sdk.CheckState{{
-			Status:  sdk.StatusInfo,
+			Status:  sdk.StatusUnknown,
 			Message: "No targets to ping",
 			Code:    "ping_no_targets",
 		}}
