@@ -44,9 +44,6 @@ func (r *rttRule) ValidateOptions(opts sdk.CheckerOptions) error {
 	if warn <= 0 {
 		return fmt.Errorf("warningRTT must be positive")
 	}
-	if crit <= 0 {
-		return fmt.Errorf("criticalRTT must be positive")
-	}
 	if crit <= warn {
 		return fmt.Errorf("criticalRTT (%v) must be greater than warningRTT (%v)", crit, warn)
 	}

@@ -21,27 +21,35 @@
 
 package checker
 
-// ObservationKeyPing is the observation key for ICMP ping data.
-const ObservationKeyPing = "ping"
+import (
+	"context"
+	"testing"
 
-// PingData holds the collected ping results for all targets.
-type PingData struct {
-	Targets []PingTargetResult `json:"targets"`
+	sdk "git.happydns.org/checker-sdk-go/checker"
+)
+
+func TestReachabilityEvaluate(t *testing.T) {
+	r := &reachabilityRule{}
+	states := r.Evaluate(context.Background(), obsWith(
+		PingTargetResult{Address: "up", Sent: 5, Received: 5},
+		PingTargetResult{Address: "down", Sent: 5, Received: 0},
+	), sdk.CheckerOptions{})
+
+	if len(states) != 2 {
+		t.Fatalf("got %d states, want 2", len(states))
+	}
+	if states[0].Status != sdk.StatusOK || states[0].Code != "ping.reachable.ok" {
+		t.Errorf("up: %+v", states[0])
+	}
+	if states[1].Status != sdk.StatusCrit || states[1].Code != "ping.reachable.unreachable" {
+		t.Errorf("down: %+v", states[1])
+	}
 }
 
-// PingTargetResult contains the ping statistics for a single target.
-//
-// Address is the user-supplied label (hostname or IP). ResolvedIP is the
-// IP that was actually probed; rules that need to reason about address
-// family (e.g. IPv6 reachability) must consult ResolvedIP because Address
-// can be a hostname.
-type PingTargetResult struct {
-	Address    string  `json:"address"`
-	ResolvedIP string  `json:"resolved_ip,omitempty"`
-	RTTMin     float64 `json:"rtt_min"`
-	RTTAvg     float64 `json:"rtt_avg"`
-	RTTMax     float64 `json:"rtt_max"`
-	PacketLoss float64 `json:"packet_loss"`
-	Sent       int     `json:"sent"`
-	Received   int     `json:"received"`
+func TestReachabilityNoTargets(t *testing.T) {
+	r := &reachabilityRule{}
+	states := r.Evaluate(context.Background(), obsWith(), sdk.CheckerOptions{})
+	if len(states) != 1 || states[0].Status != sdk.StatusUnknown {
+		t.Errorf("expected single Unknown state, got %+v", states)
+	}
 }

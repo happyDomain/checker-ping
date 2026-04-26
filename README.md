@@ -58,6 +58,17 @@ make docker CHECKER_VERSION=1.2.3
 
 Set the `endpoint` admin option for the ping checker to the URL of the running checker-ping server (e.g., `http://checker-ping:8080`). happyDomain will delegate observation collection to this endpoint.
 
+### Deployment
+
+The `/collect` endpoint has no built-in authentication and will issue
+ICMP probes to whatever hostnames or IP addresses the caller supplies,
+including private (RFC 1918), loopback, link-local, and cloud metadata
+addresses (e.g. `169.254.169.254`). It is meant to run on a trusted
+network, reachable only by the happyDomain instance that drives it.
+Restrict access via a reverse proxy with authentication, a network ACL,
+or by binding the listener to a private interface; do not expose it
+directly to the public internet.
+
 ## Protocol
 
 ### POST /collect

@@ -23,6 +23,7 @@ package checker
 
 import (
 	"encoding/json"
+	"fmt"
 	"time"
 
 	happydns "git.happydns.org/checker-sdk-go/checker"
@@ -51,7 +52,7 @@ func (p *pingProvider) Key() happydns.ObservationKey {
 func (p *pingProvider) ExtractMetrics(ctx happydns.ReportContext, collectedAt time.Time) ([]happydns.CheckMetric, error) {
 	var data PingData
 	if err := json.Unmarshal(ctx.Data(), &data); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("decode ping data: %w", err)
 	}
 
 	metrics := Metrics(&data, collectedAt)

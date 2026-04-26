@@ -26,7 +26,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net"
-	"strings"
 	"time"
 
 	probing "github.com/prometheus-community/pro-bing"
@@ -45,12 +44,10 @@ func (p *pingProvider) Collect(ctx context.Context, opts sdk.CheckerOptions) (an
 		return nil, err
 	}
 
+	const minCount, maxCount = 1, 20
 	count := sdk.GetIntOption(opts, "count", 5)
-	if count < 1 {
-		count = 1
-	}
-	if count > 20 {
-		count = 20
+	if count < minCount || count > maxCount {
+		return nil, fmt.Errorf("count must be between %d and %d, got %d", minCount, maxCount, count)
 	}
 
 	data := &PingData{}
@@ -76,8 +73,13 @@ func (p *pingProvider) Collect(ctx context.Context, opts sdk.CheckerOptions) (an
 		}
 
 		stats := pinger.Statistics()
+		var resolved string
+		if ip := pinger.IPAddr(); ip != nil {
+			resolved = ip.IP.String()
+		}
 		data.Targets = append(data.Targets, PingTargetResult{
 			Address:    addr,
+			ResolvedIP: resolved,
 			RTTMin:     float64(stats.MinRtt.Microseconds()) / 1000.0,
 			RTTAvg:     float64(stats.AvgRtt.Microseconds()) / 1000.0,
 			RTTMax:     float64(stats.MaxRtt.Microseconds()) / 1000.0,
@@ -88,7 +90,7 @@ func (p *pingProvider) Collect(ctx context.Context, opts sdk.CheckerOptions) (an
 	}
 
 	if len(data.Targets) == 0 {
-		return nil, fmt.Errorf("all pings failed: %s", strings.Join(errs, "; "))
+		return nil, fmt.Errorf("all %d ping(s) failed; first error: %s", len(errs), errs[0])
 	}
 
 	return data, nil
@@ -128,7 +130,10 @@ func resolveAddresses(opts sdk.CheckerOptions) ([]string, error) {
 		if svc.Type != "abstract.Server" {
 			return nil, fmt.Errorf("service is %s, expected abstract.Server", svc.Type)
 		}
-		ips := ipsFromService(&svc)
+		ips, err := ipsFromService(&svc)
+		if err != nil {
+			return nil, fmt.Errorf("decode service payload: %w", err)
+		}
 		if len(ips) > 0 {
 			addrs := make([]string, len(ips))
 			for i, ip := range ips {
@@ -142,10 +147,10 @@ func resolveAddresses(opts sdk.CheckerOptions) ([]string, error) {
 	return nil, fmt.Errorf("no addresses provided: set 'addresses', 'address', or 'service' in options")
 }
 
-func ipsFromService(svc *happydns.ServiceMessage) []net.IP {
+func ipsFromService(svc *happydns.ServiceMessage) ([]net.IP, error) {
 	var server abstract.Server
 	if err := json.Unmarshal(svc.Service, &server); err != nil {
-		return nil
+		return nil, err
 	}
 
 	var ips []net.IP
@@ -155,5 +160,5 @@ func ipsFromService(svc *happydns.ServiceMessage) []net.IP {
 	if server.AAAA != nil && len(server.AAAA.AAAA) > 0 {
 		ips = append(ips, server.AAAA.AAAA)
 	}
-	return ips
+	return ips, nil
 }

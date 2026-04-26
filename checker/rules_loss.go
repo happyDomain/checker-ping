@@ -40,16 +40,7 @@ func (r *packetLossRule) Description() string {
 func (r *packetLossRule) ValidateOptions(opts sdk.CheckerOptions) error {
 	warn := sdk.GetFloatOption(opts, "warningPacketLoss", 10)
 	crit := sdk.GetFloatOption(opts, "criticalPacketLoss", 50)
-	if warn < 0 || warn > 100 {
-		return fmt.Errorf("warningPacketLoss must be between 0 and 100")
-	}
-	if crit < 0 || crit > 100 {
-		return fmt.Errorf("criticalPacketLoss must be between 0 and 100")
-	}
-	if crit <= warn {
-		return fmt.Errorf("criticalPacketLoss (%v) must be greater than warningPacketLoss (%v)", crit, warn)
-	}
-	return nil
+	return validateThresholdPair("warningPacketLoss", "criticalPacketLoss", warn, crit, 0, 100)
 }
 
 func (r *packetLossRule) Evaluate(ctx context.Context, obs sdk.ObservationGetter, opts sdk.CheckerOptions) []sdk.CheckState {

@@ -45,7 +45,11 @@ func (r *ipv6ReachabilityRule) Evaluate(ctx context.Context, obs sdk.Observation
 
 	var ipv6Total, ipv6Reachable int
 	for _, t := range data.Targets {
-		if !isIPv6(t.Address) {
+		probed := t.ResolvedIP
+		if probed == "" {
+			probed = t.Address
+		}
+		if !isIPv6(probed) {
 			continue
 		}
 		ipv6Total++

@@ -42,11 +42,20 @@ func Rules() []sdk.CheckRule {
 	}
 }
 
-// Rule returns the primary rule (reachability) for backward compatibility
-// with callers that expect a single rule; prefer Rules() which returns the
-// full rule set.
-func Rule() sdk.CheckRule {
-	return &reachabilityRule{}
+// validateThresholdPair checks that warn and crit are within [min, max] and
+// that crit is strictly greater than warn. The names are used in error
+// messages so callers get diagnostics naming their actual options.
+func validateThresholdPair(warnName, critName string, warn, crit, min, max float64) error {
+	if warn < min || warn > max {
+		return fmt.Errorf("%s must be between %v and %v", warnName, min, max)
+	}
+	if crit < min || crit > max {
+		return fmt.Errorf("%s must be between %v and %v", critName, min, max)
+	}
+	if crit <= warn {
+		return fmt.Errorf("%s (%v) must be greater than %s (%v)", critName, crit, warnName, warn)
+	}
+	return nil
 }
 
 // loadPingData fetches the ping observation. On error, returns a CheckState
