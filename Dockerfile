@@ -12,4 +12,6 @@ FROM scratch
 COPY --from=builder /checker-ping /checker-ping
 USER 65534:65534
 EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+  CMD ["/checker-ping", "-healthcheck"]
 ENTRYPOINT ["/checker-ping"]
