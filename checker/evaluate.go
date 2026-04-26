@@ -22,7 +22,6 @@
 package checker
 
 import (
-	"fmt"
 	"time"
 )
 
@@ -50,45 +49,4 @@ type Metric struct {
 	Unit      string            `json:"unit,omitempty"`
 	Labels    map[string]string `json:"labels,omitempty"`
 	Timestamp time.Time         `json:"timestamp"`
-}
-
-// EvaluateResult holds the evaluation outcome for a single target.
-type EvaluateResult struct {
-	Address string `json:"address"`
-	Status  int    `json:"status"`
-	Message string `json:"message"`
-	Code    string `json:"code"`
-}
-
-const (
-	StatusUnknown = 0
-	StatusOK      = 1
-	StatusWarn    = 3
-	StatusCrit    = 4
-)
-
-// Evaluate checks the ping data against the given thresholds and returns one
-// result per target.
-func Evaluate(data *PingData, warningRTT, criticalRTT, warningPacketLoss, criticalPacketLoss float64) []EvaluateResult {
-	if len(data.Targets) == 0 {
-		return nil
-	}
-
-	results := make([]EvaluateResult, 0, len(data.Targets))
-	for _, target := range data.Targets {
-		status := StatusOK
-		if target.PacketLoss >= criticalPacketLoss || target.RTTAvg >= criticalRTT {
-			status = StatusCrit
-		} else if target.PacketLoss >= warningPacketLoss || target.RTTAvg >= warningRTT {
-			status = StatusWarn
-		}
-
-		results = append(results, EvaluateResult{
-			Address: target.Address,
-			Status:  status,
-			Message: fmt.Sprintf("%.1fms avg, %.0f%% loss", target.RTTAvg, target.PacketLoss),
-			Code:    "ping_result",
-		})
-	}
-	return results
 }

@@ -24,141 +24,60 @@ package checker
 import (
 	"context"
 	"fmt"
+	"net"
 
 	sdk "git.happydns.org/checker-sdk-go/checker"
 )
 
-// Rule returns a new ping check rule for local evaluation.
+// Rules returns the full list of CheckRules exposed by the ping checker.
+// Each rule covers a single concern so callers see at a glance which
+// aspects passed and which did not, instead of sharing a single monolithic
+// rule result.
+func Rules() []sdk.CheckRule {
+	return []sdk.CheckRule{
+		&reachabilityRule{},
+		&packetLossRule{},
+		&rttRule{},
+		&ipv6ReachabilityRule{},
+	}
+}
+
+// Rule returns the primary rule (reachability) for backward compatibility
+// with callers that expect a single rule; prefer Rules() which returns the
+// full rule set.
 func Rule() sdk.CheckRule {
-	return &pingRule{}
+	return &reachabilityRule{}
 }
 
-type pingRule struct{}
-
-func (r *pingRule) Name() string { return "ping_check" }
-func (r *pingRule) Description() string {
-	return "Checks ICMP ping reachability, round-trip time, and packet loss"
-}
-
-func (r *pingRule) ValidateOptions(opts sdk.CheckerOptions) error {
-	warningRTT := float64(100)
-	criticalRTT := float64(500)
-	warningPacketLoss := float64(10)
-	criticalPacketLoss := float64(50)
-
-	if v, ok := opts["warningRTT"]; ok {
-		d, ok := v.(float64)
-		if !ok {
-			return fmt.Errorf("warningRTT must be a number")
-		}
-		if d <= 0 {
-			return fmt.Errorf("warningRTT must be positive")
-		}
-		warningRTT = d
-	}
-	if v, ok := opts["criticalRTT"]; ok {
-		d, ok := v.(float64)
-		if !ok {
-			return fmt.Errorf("criticalRTT must be a number")
-		}
-		if d <= 0 {
-			return fmt.Errorf("criticalRTT must be positive")
-		}
-		criticalRTT = d
-	}
-	if v, ok := opts["warningPacketLoss"]; ok {
-		d, ok := v.(float64)
-		if !ok {
-			return fmt.Errorf("warningPacketLoss must be a number")
-		}
-		if d < 0 || d > 100 {
-			return fmt.Errorf("warningPacketLoss must be between 0 and 100")
-		}
-		warningPacketLoss = d
-	}
-	if v, ok := opts["criticalPacketLoss"]; ok {
-		d, ok := v.(float64)
-		if !ok {
-			return fmt.Errorf("criticalPacketLoss must be a number")
-		}
-		if d < 0 || d > 100 {
-			return fmt.Errorf("criticalPacketLoss must be between 0 and 100")
-		}
-		criticalPacketLoss = d
-	}
-	if v, ok := opts["count"]; ok {
-		d, ok := v.(float64)
-		if !ok {
-			return fmt.Errorf("count must be a number")
-		}
-		if d < 1 || d > 20 {
-			return fmt.Errorf("count must be between 1 and 20")
-		}
-	}
-
-	if criticalRTT <= warningRTT {
-		return fmt.Errorf("criticalRTT (%v) must be greater than warningRTT (%v)", criticalRTT, warningRTT)
-	}
-	if criticalPacketLoss <= warningPacketLoss {
-		return fmt.Errorf("criticalPacketLoss (%v) must be greater than warningPacketLoss (%v)", criticalPacketLoss, warningPacketLoss)
-	}
-
-	return nil
-}
-
-func (r *pingRule) Evaluate(ctx context.Context, obs sdk.ObservationGetter, opts sdk.CheckerOptions) []sdk.CheckState {
+// loadPingData fetches the ping observation. On error, returns a CheckState
+// the caller should emit to short-circuit its rule.
+func loadPingData(ctx context.Context, obs sdk.ObservationGetter) (*PingData, *sdk.CheckState) {
 	var data PingData
 	if err := obs.Get(ctx, ObservationKeyPing, &data); err != nil {
-		return []sdk.CheckState{{
+		return nil, &sdk.CheckState{
 			Status:  sdk.StatusError,
-			Message: fmt.Sprintf("Failed to get ping data: %v", err),
-			Code:    "ping_error",
-		}}
-	}
-
-	warningRTT := sdk.GetFloatOption(opts, "warningRTT", 100)
-	criticalRTT := sdk.GetFloatOption(opts, "criticalRTT", 500)
-	warningPacketLoss := sdk.GetFloatOption(opts, "warningPacketLoss", 10)
-	criticalPacketLoss := sdk.GetFloatOption(opts, "criticalPacketLoss", 50)
-
-	results := Evaluate(&data, warningRTT, criticalRTT, warningPacketLoss, criticalPacketLoss)
-	if len(results) == 0 {
-		return []sdk.CheckState{{
-			Status:  sdk.StatusUnknown,
-			Message: "No targets to ping",
-			Code:    "ping_no_targets",
-		}}
-	}
-
-	targetByAddr := make(map[string]PingTargetResult, len(data.Targets))
-	for _, t := range data.Targets {
-		targetByAddr[t.Address] = t
-	}
-
-	out := make([]sdk.CheckState, 0, len(results))
-	for _, r := range results {
-		var status sdk.Status
-		switch r.Status {
-		case StatusOK:
-			status = sdk.StatusOK
-		case StatusWarn:
-			status = sdk.StatusWarn
-		case StatusCrit:
-			status = sdk.StatusCrit
-		default:
-			status = sdk.StatusUnknown
+			Message: fmt.Sprintf("failed to load ping observation: %v", err),
+			Code:    "ping.observation_error",
 		}
-
-		state := sdk.CheckState{
-			Status:  status,
-			Subject: r.Address,
-			Message: r.Message,
-			Code:    r.Code,
-		}
-		if t, ok := targetByAddr[r.Address]; ok {
-			state.Meta = map[string]any{"target": t}
-		}
-		out = append(out, state)
 	}
-	return out
+	return &data, nil
+}
+
+// noTargetsState is returned when the observation has no targets at all.
+func noTargetsState(code string) sdk.CheckState {
+	return sdk.CheckState{
+		Status:  sdk.StatusUnknown,
+		Message: "No targets to ping",
+		Code:    code,
+	}
+}
+
+// isIPv6 reports whether addr parses as an IPv6 address (excluding
+// IPv4-mapped representations).
+func isIPv6(addr string) bool {
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return false
+	}
+	return ip.To4() == nil
 }
