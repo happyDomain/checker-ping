@@ -69,40 +69,14 @@ Restrict access via a reverse proxy with authentication, a network ACL,
 or by binding the listener to a private interface; do not expose it
 directly to the public internet.
 
-## Protocol
+## Rules
 
-### POST /collect
-
-Request:
-```json
-{
-  "key": "ping",
-  "target": {"userId": "...", "domainId": "..."},
-  "options": {
-    "addresses": ["1.2.3.4", "2001:db8::1"],
-    "count": 5
-  }
-}
-```
-
-Response:
-```json
-{
-  "data": {
-    "targets": [
-      {
-        "address": "1.2.3.4",
-        "rtt_min": 1.2,
-        "rtt_avg": 3.4,
-        "rtt_max": 5.6,
-        "packet_loss": 0,
-        "sent": 5,
-        "received": 5
-      }
-    ]
-  }
-}
-```
+| Code                  | Description                                                                                       | Severity            |
+|-----------------------|---------------------------------------------------------------------------------------------------|---------------------|
+| `ping.reachable`      | Verifies every target replied to at least one ICMP probe.                                         | CRITICAL            |
+| `ping.rtt`            | Flags targets whose average round-trip time crosses the warning or critical threshold.            | CRITICAL            |
+| `ping.ipv6_reachable` | Verifies that at least one IPv6 target replied to an ICMP probe.                                  | WARNING             |
+| `ping.packet_loss`    | Flags targets whose packet-loss ratio crosses the warning or critical threshold.                  | CRITICAL            |
 
 ## License & licensing roadmap
 
